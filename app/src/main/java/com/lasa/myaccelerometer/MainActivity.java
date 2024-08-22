@@ -321,9 +321,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 zTextView.setText("Z: "+z);
                 //-------------------------------------------
 
+                Long tsLong = System.currentTimeMillis()/1000;  // get the time stamp
+
                 // write the data to the table
                 dbHelper.insertMyAccelerometerData(String.valueOf(latitude), String.valueOf(longitude), String.valueOf(x), String.valueOf(y), String.valueOf(z),
-                        roadNameVal, vehicleNameVal, speedVal, currentDateVal, currentTimeValue, uniqueIdForDataSet);
+                        roadNameVal, vehicleNameVal, speedVal, currentDateVal, String.valueOf(tsLong), uniqueIdForDataSet);
 
             }
 
