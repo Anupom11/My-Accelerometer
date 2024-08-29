@@ -350,7 +350,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onResume();
         // Re-register the listener when the activity is resumed
         if (accelerometer != null) {
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         }
     }
 
