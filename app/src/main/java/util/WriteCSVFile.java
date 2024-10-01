@@ -12,8 +12,25 @@ import java.util.Date;
 
 public class WriteCSVFile {
 
+    public String getCsvFileName() {
+        Long tsLong = System.currentTimeMillis()/1000;
+
+        String csvFileName = "MyAccelerometer"+"_"+tsLong+".csv";
+        File filePathName = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/MyAccelerometer/");
+
+        if(!filePathName.exists()) {
+            filePathName.mkdir();
+        }
+
+        String finalFilePathVal = filePathName.getAbsolutePath() + "/"+ csvFileName;
+
+        return finalFilePathVal;
+    }
+
     public void writeCsvFile(Context context, String[] csvData) {
-        String csvHeader = "id,lat,long,x,y,z,rname,vname,speed,date,stime,uid";
+        String csvHeader = "id, lat, long, x, y, z, rname, vname, speed, date, stime, uid";
+
+        // sample data set
         /*String[] csvData = {
                 "1, 2.2, 2.2, 1, 2, 3, John Doe,30,john@example.com, 1",
                 "1, 2.2, 2.2, 1, 2, 3, John Doe,30,john@example.com, 1"

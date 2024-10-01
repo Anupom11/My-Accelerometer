@@ -22,6 +22,9 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
@@ -31,6 +34,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -105,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //--------------------------------------------------------------------------------------------------
         if(allPermissionsGranted()) {
             if(checkGpsStatus()) {
-                startLocService();      //start camera if permission has been granted by user
+                startLocService();
             }
             else {
                 //Toast.makeText(getApplicationContext(), "Turn on the GPS", Toast.LENGTH_LONG).show();
@@ -188,7 +197,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 if(!dataFetchingFlag) {
-                    getAllData();
+                    //getAllData();
+                    doFileExportOp();
                 }
                 else {
                     Toast.makeText(getApplication(), "Please stop the operation before download!", Toast.LENGTH_LONG).show();
@@ -246,47 +256,98 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    // method to retrieve data from the db
-    public void getAllData() {
+    // method to fetch data from the sqlite db and write to a file
+    public void doFileExportOp() {
 
-        ArrayList<String> dataSetArrList = new ArrayList<>();
+        String newFileName = writeCSVFile.getCsvFileName();
 
-        Cursor cursor = dbHelper.getAllData();
-        cursor.moveToFirst();
+        Handler handler = new Handler(Looper.getMainLooper());
 
-        while(!cursor.isAfterLast()) {
-            String id           = cursor.getString(cursor.getColumnIndexOrThrow ("id"));
-            String lat          = cursor.getString(cursor.getColumnIndexOrThrow ("lat"));
-            String lng          = cursor.getString(cursor.getColumnIndexOrThrow ("lng"));
-            String xVal         = cursor.getString(cursor.getColumnIndexOrThrow ("x_val"));
-            String yVal         = cursor.getString(cursor.getColumnIndexOrThrow ("y_val"));
-            String zVal         = cursor.getString(cursor.getColumnIndexOrThrow ("z_val"));
-            String roadName     = cursor.getString(cursor.getColumnIndexOrThrow ("road_name"));
-            String vehicleName  = cursor.getString(cursor.getColumnIndexOrThrow ("vehicle_name"));
-            String speed        = cursor.getString(cursor.getColumnIndexOrThrow("speed"));
-            String dateVal      = cursor.getString(cursor.getColumnIndexOrThrow ("date_val"));
-            String startTime    = cursor.getString(cursor.getColumnIndexOrThrow("start_time"));
-            String uniqueID     = cursor.getString(cursor.getColumnIndexOrThrow ("unique_id"));
+        // Run in background thread to avoid blocking UI
+        new Thread(() -> {
+            Cursor cursor = dbHelper.getAllData();
+            cursor.moveToFirst();
 
-            //System.out.println("Data::"+id+"::"+lat+"::"+lng+"::"+xVal+"::"+yVal+"::"+zVal+"::"+roadName+"::"+vehicleName+"::"+dateVal+"::"+uniqueID);
+            FileOutputStream fos = null;
+            BufferedWriter bw = null;
 
-            dataSetArrList.add(id+","+lat+","+lng+","+xVal+","+yVal+","+zVal+","+roadName+","+vehicleName+","+speed+","+dateVal+","+startTime+","+uniqueID);
+            try {
+                // Open file output stream
+                fos = new FileOutputStream(new File(newFileName));
+                bw = new BufferedWriter(new OutputStreamWriter(fos));
 
-            cursor.moveToNext();
+                // CSV header
+                String csvHeader = "id, lat, long, x, y, z, rname, vname, speed, date, stime, uid";
 
-        }
+                bw.write(csvHeader);
+                bw.newLine();
 
-        String [] dataSetArray = dataSetArrList.toArray(new String[dataSetArrList.size()]);
+                if (cursor.moveToFirst()) {
+                    do {
+                        String id           = cursor.getString(cursor.getColumnIndexOrThrow ("id"));
+                        String lat          = cursor.getString(cursor.getColumnIndexOrThrow ("lat"));
+                        String lng          = cursor.getString(cursor.getColumnIndexOrThrow ("lng"));
+                        String xVal         = cursor.getString(cursor.getColumnIndexOrThrow ("x_val"));
+                        String yVal         = cursor.getString(cursor.getColumnIndexOrThrow ("y_val"));
+                        String zVal         = cursor.getString(cursor.getColumnIndexOrThrow ("z_val"));
+                        String roadName     = cursor.getString(cursor.getColumnIndexOrThrow ("road_name"));
+                        String vehicleName  = cursor.getString(cursor.getColumnIndexOrThrow ("vehicle_name"));
+                        String speed        = cursor.getString(cursor.getColumnIndexOrThrow("speed"));
+                        String dateVal      = cursor.getString(cursor.getColumnIndexOrThrow ("date_val"));
+                        String startTime    = cursor.getString(cursor.getColumnIndexOrThrow("start_time"));
+                        String uniqueID     = cursor.getString(cursor.getColumnIndexOrThrow ("unique_id"));
 
-        //System.out.println("DataArr::"+dataSetArray.toString());
-        writeCSVFile.writeCsvFile(getApplicationContext(), dataSetArray);
+                        // Write data
+                        bw.write(id +","+ lat +","+ lng +","+ xVal +","+ yVal +","+ zVal +","+ roadName +","+ vehicleName +","+ speed +","+ dateVal +","+ startTime +","+ uniqueID);
+                        bw.newLine();
+
+                    } while (cursor.moveToNext());
+                }
+
+                // Flush and close the writer
+                bw.flush();
+
+            } catch (IOException e) {
+                e.printStackTrace();  // Handle IO exceptions
+            } finally {
+                // Close resources
+                try {
+                    if (bw != null) {
+                        bw.close();
+                    }
+                    if (fos != null) {
+                        fos.close();
+                    }
+                    if (cursor != null) {
+                        cursor.close();  // Close the cursor
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            handler.post(() -> {
+                System.out.println("CSV file written successfully to " + newFileName);
+                Toast.makeText(getApplicationContext(), "CSV file written successfully to " + newFileName, Toast.LENGTH_SHORT).show();
+            });
+
+        }).start();
 
     }
+    //*** end of method ***
 
     public void doAccelerometerWork() {
         // Register the listener for the accelerometer
         if (accelerometer != null) {
+            /*HandlerThread handlerThread = new HandlerThread("SensorThread");
+            handlerThread.start();
+            Handler handler = new Handler(handlerThread.getLooper());
+
+            sensorManager.registerListener(this , accelerometer, SensorManager.SENSOR_DELAY_NORMAL, handler);*/
+
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+            //sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         }
     }
 
@@ -350,7 +411,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onResume();
         // Re-register the listener when the activity is resumed
         if (accelerometer != null) {
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+            //sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         }
     }
 
