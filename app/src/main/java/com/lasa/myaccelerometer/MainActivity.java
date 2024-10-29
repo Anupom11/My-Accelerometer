@@ -1,6 +1,7 @@
 package com.lasa.myaccelerometer;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -53,6 +54,7 @@ import util.WriteCSVFile;
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private int REQUEST_CODE_PERMISSIONS = 1001;
+    private int REQUEST_CHECK_SETTINGS = 1002;
     private final String[] REQUIRED_PERMISSIONS = new String[] {
             //"android.permission.WRITE_EXTERNAL_STORAGE",
             "android.permission.ACCESS_FINE_LOCATION",
@@ -156,32 +158,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if (roadNameVal.length() != 0 && vehicleNameVal.length() != 0) {
                         //Toast.makeText(MainActivity.this, "Data:"+roadNameVal+"::"+vehicleNameVal, Toast.LENGTH_SHORT).show();
 
-                        //---------------------------------------------------------------------------------------
-                        // get the current date value
-                        Date c = Calendar.getInstance().getTime();
-                        SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault());
-                        currentDateVal = df.format(c);
+                        if(doPermissionOperation()) {
 
-                        // get the current time value
-                        // Get the calendar instance
-                        Calendar calendar = Calendar.getInstance();
+                            //---------------------------------------------------------------------------------------
+                            // get the current date value
+                            Date c = Calendar.getInstance().getTime();
+                            SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault());
+                            currentDateVal = df.format(c);
 
-                        // Extract the current hour, minute, and second
-                        currentTimeValue = calendar.get(Calendar.HOUR_OF_DAY)+":"+calendar.get(Calendar.MINUTE)+":"+calendar.get(Calendar.SECOND);
-                        //---------------------------------------------------------------------------------------
+                            // get the current time value
+                            // Get the calendar instance
+                            Calendar calendar = Calendar.getInstance();
 
-                        //----------------------------------------
-                        // get the unique id value
-                        UUID uuid = UUID.randomUUID();
-                        uniqueIdForDataSet = uuid.toString();
-                        //----------------------------------------
+                            // Extract the current hour, minute, and second
+                            currentTimeValue = calendar.get(Calendar.HOUR_OF_DAY) + ":" + calendar.get(Calendar.MINUTE) + ":" + calendar.get(Calendar.SECOND);
+                            //---------------------------------------------------------------------------------------
 
-                        doAccelerometerWork();
+                            //----------------------------------------
+                            // get the unique id value
+                            UUID uuid = UUID.randomUUID();
+                            uniqueIdForDataSet = uuid.toString();
+                            //----------------------------------------
 
-                        // turn on the fetching flag
-                        dataFetchingFlag = true;
+                            doAccelerometerWork();
 
-                        startFetching.setText("Stop");
+                            // turn on the fetching flag
+                            dataFetchingFlag = true;
+
+                            startFetching.setText("Stop");
+
+                        }
 
                     } else {
                         Toast.makeText(MainActivity.this, "Please enter the required details!", Toast.LENGTH_SHORT).show();
@@ -229,6 +235,29 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         });
 
     }
+    //*** end of oncreate method ***
+
+    // method to do the permission request and GPS enable operations
+    public boolean doPermissionOperation() {
+        if(allPermissionsGranted()) {
+            if(checkGpsStatus()) {
+                startLocService();
+
+                return true;
+            }
+            else {
+                //Toast.makeText(getApplicationContext(), "Turn on the GPS", Toast.LENGTH_LONG).show();
+                promptGPSEnableOp();
+            }
+        }
+        else {
+            Toast.makeText(getApplicationContext(), "GPS is not on. Please turn on the GPS", Toast.LENGTH_LONG).show();
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
+        }
+
+        return false;
+    }
+
 
     // method to stop the writing data operation
     public void stopDataFetchingOp() {
@@ -409,6 +438,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onResume() {
         super.onResume();
+
+        //-----------------------------------------
+        // code section for location service
+        if(allPermissionsGranted()) {
+            if(checkGpsStatus()) {
+                startLocService();
+            }
+        }
+        //-----------------------------------------
+
         // Re-register the listener when the activity is resumed
         if (accelerometer != null) {
             //sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
@@ -427,8 +466,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     public void onClick(DialogInterface dialogInterface, int i) {
                         //startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
 
-                        /*Intent intent1 = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                        startActivity(intent1);*/
+                        Intent intent1 = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivity(intent1);
 
                         dialogInterface.cancel();
                     }
@@ -470,18 +509,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
+        // checking for location permission
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                if(checkGpsStatus()) {
-                    startLocService(); //start camera if permission has been granted by user
-                }
-                else {
-                    //Toast.makeText(getApplicationContext(), "Turn on the GPS", Toast.LENGTH_LONG).show();
-                    promptGPSEnableOp();
+
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (allPermissionsGranted()) {
+                    if(checkGpsStatus()) {
+                        startLocService();
+                    }
+                    else {
+                        //Toast.makeText(getApplicationContext(), "Turn on the GPS", Toast.LENGTH_LONG).show();
+                        promptGPSEnableOp();
+                    }
+                } else {
+                    Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_LONG).show();
+                    //this.finish();
                 }
             } else {
-                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
-                this.finish();
+                // Permission was denied, show a message or take appropriate action
+                Toast.makeText(this, "Location permission denied! To enable go to the app's setting and grant the permission.", Toast.LENGTH_LONG).show();
             }
         }
         else {
@@ -489,8 +535,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CHECK_SETTINGS) {
+            if (resultCode == RESULT_OK) {
+                // The user enabled the location settings, start location updates
+            } else {
+                // The user didn't enable the location settings
+                Toast.makeText(this, "Location not enabled, can't get coordinates", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
     @SuppressLint("MissingPermission")
     private void startLocService() {
+
         //-------------------------------------------------------------------------------------------------------------------------
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         LocationListener locationListener = new MyLocationListener();
