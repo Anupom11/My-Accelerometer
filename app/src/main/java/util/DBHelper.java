@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Build;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -143,7 +144,7 @@ public class DBHelper extends SQLiteOpenHelper {
     public Integer deleteMyAccelerometerData(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
         if(id!=null) {
-            return db.delete(my_acc_data, id + " = ? ", new String[]{id});
+            return db.delete(my_acc_data, "id  = ? ", new String[]{String.valueOf(id)});
         }
 
         return null;

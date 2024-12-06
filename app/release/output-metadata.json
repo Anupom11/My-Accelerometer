@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.lasa.myaccelerometer",
+  "applicationId": "com.lasa.mynotes",
   "variantName": "release",
   "elements": [
     {

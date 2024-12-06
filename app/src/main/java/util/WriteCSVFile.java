@@ -15,8 +15,8 @@ public class WriteCSVFile {
     public String getCsvFileName() {
         Long tsLong = System.currentTimeMillis()/1000;
 
-        String csvFileName = "MyAccelerometer"+"_"+tsLong+".csv";
-        File filePathName = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/MyAccelerometer/");
+        String csvFileName = "MyNotes"+"_"+tsLong+".csv";
+        File filePathName = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/MyNotes/");
 
         if(!filePathName.exists()) {
             filePathName.mkdir();
@@ -28,7 +28,7 @@ public class WriteCSVFile {
     }
 
     public void writeCsvFile(Context context, String[] csvData) {
-        String csvHeader = "id, lat, long, x, y, z, rname, vname, speed, date, stime, uid";
+        String csvHeader = "id, lat, long, x, y, z, heading, body, speed, date, stime, uid";
 
         // sample data set
         /*String[] csvData = {
